@@ -7,15 +7,15 @@ import (
 
 func TestGenerateInvoiceNumber(t *testing.T) {
 	issueDate := time.Date(2026, time.September, 19, 10, 0, 0, 0, time.UTC)
-	invNum := GenerateInvoiceNumber(1, issueDate)
+	invNum := GenerateInvoiceNumber(1, issueDate, 1)
 
-	expected := "INV/1/2026/09/19"
+	expected := "INV/1/2026/09/19/1"
 	if invNum != expected {
 		t.Errorf("expected invoice number %q, got %q", expected, invNum)
 	}
 
-	invNum2 := GenerateInvoiceNumber(105, time.Date(2027, time.January, 5, 0, 0, 0, 0, time.UTC))
-	expected2 := "INV/105/2027/01/05"
+	invNum2 := GenerateInvoiceNumber(105, time.Date(2027, time.January, 5, 0, 0, 0, 0, time.UTC), 42)
+	expected2 := "INV/105/2027/01/05/42"
 	if invNum2 != expected2 {
 		t.Errorf("expected invoice number %q, got %q", expected2, invNum2)
 	}

@@ -14,7 +14,7 @@ func TestPDFService_GenerateInvoicePDF(t *testing.T) {
 	invoice := &domain.Invoice{
 		ID:            1,
 		ClientID:      1,
-		InvoiceNumber: "INV/1/2026/09/19",
+		InvoiceNumber: "INV/1/2026/09/19/1",
 		TotalPrice:    400000.0,
 		IssueDate:     time.Date(2026, 9, 19, 0, 0, 0, 0, time.UTC),
 		DueDate:       time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC),

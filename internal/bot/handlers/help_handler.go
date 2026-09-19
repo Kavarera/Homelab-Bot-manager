@@ -41,8 +41,6 @@ func (h *HelpHandler) HandleHelp(ctx *bot.Context) error {
 Perintah yang tersedia:
 • /menu - Menampilkan menu utama
 • /status - Cek status dan uptime server
-• /ufw53 on <keyword> - Buka port 53 (TCP/UDP)
-• /ufw53 off <keyword> - Tutup port 53 (TCP/UDP)
 • /help - Menampilkan panduan ini
 `, h.serverName)
 

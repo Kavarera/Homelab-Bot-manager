@@ -99,6 +99,10 @@ func TestInvoiceFlow_FullCycleAndDuplicateRejection(t *testing.T) {
 	if len(invoices) != 1 {
 		t.Fatalf("expected 1 invoice in DB, got %d", len(invoices))
 	}
+	expectedInvNum := domain.GenerateInvoiceNumber(client.ID, time.Now(), invoices[0].ID)
+	if invoices[0].InvoiceNumber != expectedInvNum {
+		t.Errorf("expected invoice number %q, got %q", expectedInvNum, invoices[0].InvoiceNumber)
+	}
 
 	// 5. Test Duplicate Rejection in the same month
 	mockEmail.sendCalled = false

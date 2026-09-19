@@ -41,7 +41,7 @@ func TestRenderInvoiceHTML(t *testing.T) {
 	invoice := &domain.Invoice{
 		ID:            100,
 		ClientID:      client.ID,
-		InvoiceNumber: "INV/1/2026/08/03",
+		InvoiceNumber: "INV/1/2026/08/03/100",
 		TotalPrice:    400000,
 		IssueDate:     issueDate,
 		DueDate:       dueDate,
@@ -65,7 +65,7 @@ func TestRenderInvoiceHTML(t *testing.T) {
 	htmlStr := string(htmlBytes)
 
 	// Verify crucial fields are present
-	if !strings.Contains(htmlStr, "INV/1/2026/08/03") {
+	if !strings.Contains(htmlStr, "INV/1/2026/08/03/100") {
 		t.Error("invoice number missing from rendered HTML")
 	}
 	if !strings.Contains(htmlStr, "Darmawati Hartono") {

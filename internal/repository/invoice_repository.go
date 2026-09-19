@@ -12,6 +12,7 @@ import (
 // InvoiceRepository defines database operations for Invoice and InvoiceItem entities.
 type InvoiceRepository interface {
 	Create(ctx context.Context, invoice *domain.Invoice) error
+	GetNextInvoiceID(ctx context.Context) (int64, error)
 	GetByID(ctx context.Context, id int64) (*domain.Invoice, error)
 	GetByInvoiceNumber(ctx context.Context, invNum string) (*domain.Invoice, error)
 	CheckMonthlyInvoiceExists(ctx context.Context, clientID int64, productID int64, year int, month int) (*domain.Invoice, error)
@@ -27,6 +28,17 @@ type sqliteInvoiceRepository struct {
 // NewInvoiceRepository creates a new SQLite InvoiceRepository.
 func NewInvoiceRepository(db *sql.DB) InvoiceRepository {
 	return &sqliteInvoiceRepository{db: db}
+}
+
+// GetNextInvoiceID returns the next anticipated auto-increment ID for invoices.
+func (r *sqliteInvoiceRepository) GetNextInvoiceID(ctx context.Context) (int64, error) {
+	query := `SELECT COALESCE(MAX(id), 0) + 1 FROM invoices`
+	var nextID int64
+	err := r.db.QueryRowContext(ctx, query).Scan(&nextID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get next invoice id: %w", err)
+	}
+	return nextID, nil
 }
 
 // Create inserts an invoice and all its items inside a single atomic database transaction.
@@ -47,29 +59,54 @@ func (r *sqliteInvoiceRepository) Create(ctx context.Context, invoice *domain.In
 		invoice.Status = "PENDING"
 	}
 
-	invoiceQuery := `
-		INSERT INTO invoices (client_id, invoice_number, total_price, issue_date, due_date, status, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`
-	res, err := tx.ExecContext(ctx, invoiceQuery,
-		invoice.ClientID,
-		invoice.InvoiceNumber,
-		invoice.TotalPrice,
-		invoice.IssueDate,
-		invoice.DueDate,
-		invoice.Status,
-		invoice.CreatedAt,
-		invoice.UpdatedAt,
-	)
+	var invoiceQuery string
+	var args []any
+
+	if invoice.ID > 0 {
+		invoiceQuery = `
+			INSERT INTO invoices (id, client_id, invoice_number, total_price, issue_date, due_date, status, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`
+		args = []any{
+			invoice.ID,
+			invoice.ClientID,
+			invoice.InvoiceNumber,
+			invoice.TotalPrice,
+			invoice.IssueDate,
+			invoice.DueDate,
+			invoice.Status,
+			invoice.CreatedAt,
+			invoice.UpdatedAt,
+		}
+	} else {
+		invoiceQuery = `
+			INSERT INTO invoices (client_id, invoice_number, total_price, issue_date, due_date, status, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`
+		args = []any{
+			invoice.ClientID,
+			invoice.InvoiceNumber,
+			invoice.TotalPrice,
+			invoice.IssueDate,
+			invoice.DueDate,
+			invoice.Status,
+			invoice.CreatedAt,
+			invoice.UpdatedAt,
+		}
+	}
+
+	res, err := tx.ExecContext(ctx, invoiceQuery, args...)
 	if err != nil {
 		return fmt.Errorf("failed to insert invoice: %w", err)
 	}
 
-	invoiceID, err := res.LastInsertId()
-	if err != nil {
-		return err
+	if invoice.ID == 0 {
+		invoiceID, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+		invoice.ID = invoiceID
 	}
-	invoice.ID = invoiceID
 
 	itemQuery := `
 		INSERT INTO invoice_items (invoice_id, product_id, qty, unit_price, subtotal, created_at, updated_at)
@@ -77,7 +114,7 @@ func (r *sqliteInvoiceRepository) Create(ctx context.Context, invoice *domain.In
 	`
 	for i := range invoice.Items {
 		item := &invoice.Items[i]
-		item.InvoiceID = invoiceID
+		item.InvoiceID = invoice.ID
 		item.CreatedAt = now
 		item.UpdatedAt = now
 

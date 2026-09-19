@@ -209,10 +209,17 @@ func NewInvoiceFlow(
 					return c.Complete(), nil
 				}
 
+				nextID, err := invoiceRepo.GetNextInvoiceID(ctx)
+				if err != nil {
+					_ = c.ReplyAndRemoveKeyboard(fmt.Sprintf("❌ Gagal mendapatkan ID invoice: %v", err))
+					return c.Complete(), nil
+				}
+
 				dueDate := domain.CalculateDueDate(now)
-				invoiceNumber := domain.GenerateInvoiceNumber(client.ID, now)
+				invoiceNumber := domain.GenerateInvoiceNumber(client.ID, now, nextID)
 
 				invoice := &domain.Invoice{
+					ID:            nextID,
 					ClientID:      client.ID,
 					InvoiceNumber: invoiceNumber,
 					TotalPrice:    totalPrice,

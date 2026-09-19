@@ -70,14 +70,9 @@ func main() {
 
 	// 6. Initialize Infrastructure / Executors
 	localExec := executor.NewLocalExecutor()
-	sshExec := executor.NewSSHExecutor(localExec, executor.SSHConfig{
-		Host:           cfg.SSHHost,
-		PrivateKeyPath: cfg.SSHPrivateKeyPath,
-	})
 
 	// 7. Initialize Domain Services (Business Logic)
 	sysService := service.NewSystemService(localExec)
-	ufwService := service.NewFirewallService(sshExec)
 	emailService := service.NewEmailService(cfg, "assets/logo.png", "assets/signature.png")
 
 	// 8. Initialize Stateful Session Store & Flow Engine (1 Hour TTL)
@@ -95,7 +90,6 @@ func main() {
 
 	// 9. Initialize Bot Handlers
 	sysHandler := handlers.NewSystemHandler(sysService, cfg.ServerName)
-	ufwHandler := handlers.NewUFWHandler(ufwService, cfg.ServerName)
 	helpHandler := handlers.NewHelpHandler(cfg.ServerName)
 
 	// 10. Initialize Router & Configure Middlewares
@@ -110,7 +104,6 @@ func main() {
 	router.RegisterCommand("menu", helpHandler.HandleMenu)
 	router.RegisterCommand("help", helpHandler.HandleHelp)
 	router.RegisterCommand("status", sysHandler.HandleStatus)
-	router.RegisterCommand("ufw53", ufwHandler.HandleTogglePort53)
 
 	// 12. Register Reply Keyboard Button Triggers
 	// Kirim Invoice

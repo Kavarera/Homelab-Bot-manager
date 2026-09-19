@@ -131,9 +131,19 @@ func TestInvoiceRepository_TransactionAndCalculation(t *testing.T) {
 
 	issueDate := time.Date(2026, time.September, 19, 9, 0, 0, 0, time.UTC)
 	dueDate := domain.CalculateDueDate(issueDate)
-	invNumber := domain.GenerateInvoiceNumber(client.ID, issueDate)
+
+	nextID, err := invoiceRepo.GetNextInvoiceID(ctx)
+	if err != nil {
+		t.Fatalf("failed to get next invoice ID: %v", err)
+	}
+	if nextID != 1 {
+		t.Errorf("expected next invoice ID 1, got %d", nextID)
+	}
+
+	invNumber := domain.GenerateInvoiceNumber(client.ID, issueDate, nextID)
 
 	invoice := &domain.Invoice{
+		ID:            nextID,
 		ClientID:      client.ID,
 		InvoiceNumber: invNumber,
 		TotalPrice:    6000000.0,
@@ -147,12 +157,21 @@ func TestInvoiceRepository_TransactionAndCalculation(t *testing.T) {
 	}
 
 	// Create Invoice with Items
-	err := invoiceRepo.Create(ctx, invoice)
+	err = invoiceRepo.Create(ctx, invoice)
 	if err != nil {
 		t.Fatalf("failed to create invoice: %v", err)
 	}
-	if invoice.ID == 0 {
-		t.Fatal("expected invoice ID to be set")
+	if invoice.ID != 1 {
+		t.Fatalf("expected invoice ID to be 1, got %d", invoice.ID)
+	}
+
+	// Check next ID after insertion
+	nextID2, err := invoiceRepo.GetNextInvoiceID(ctx)
+	if err != nil {
+		t.Fatalf("failed to get next invoice ID: %v", err)
+	}
+	if nextID2 != 2 {
+		t.Errorf("expected next invoice ID 2, got %d", nextID2)
 	}
 
 	// Retrieve by ID
@@ -160,8 +179,8 @@ func TestInvoiceRepository_TransactionAndCalculation(t *testing.T) {
 	if err != nil || retrieved == nil {
 		t.Fatalf("failed to get invoice: %v", err)
 	}
-	if retrieved.InvoiceNumber != "INV/1/2026/09/19" {
-		t.Errorf("expected invoice number 'INV/1/2026/09/19', got '%s'", retrieved.InvoiceNumber)
+	if retrieved.InvoiceNumber != "INV/1/2026/09/19/1" {
+		t.Errorf("expected invoice number 'INV/1/2026/09/19/1', got '%s'", retrieved.InvoiceNumber)
 	}
 	if len(retrieved.Items) != 2 {
 		t.Fatalf("expected 2 invoice items, got %d", len(retrieved.Items))
@@ -210,7 +229,7 @@ func TestInvoiceRepository_CheckMonthlyInvoiceExists(t *testing.T) {
 	issueDate := time.Date(2026, time.September, 15, 10, 0, 0, 0, time.UTC)
 	inv := &domain.Invoice{
 		ClientID:      client.ID,
-		InvoiceNumber: "INV/1/2026/09/15",
+		InvoiceNumber: "INV/1/2026/09/15/1",
 		TotalPrice:    400000.0,
 		IssueDate:     issueDate,
 		DueDate:       domain.CalculateDueDate(issueDate),
@@ -229,8 +248,8 @@ func TestInvoiceRepository_CheckMonthlyInvoiceExists(t *testing.T) {
 	if found == nil {
 		t.Fatal("expected monthly invoice to be found")
 	}
-	if found.InvoiceNumber != "INV/1/2026/09/15" {
-		t.Errorf("expected invoice 'INV/1/2026/09/15', got '%s'", found.InvoiceNumber)
+	if found.InvoiceNumber != "INV/1/2026/09/15/1" {
+		t.Errorf("expected invoice 'INV/1/2026/09/15/1', got '%s'", found.InvoiceNumber)
 	}
 
 	// Check for different month (October 2026) -> Should NOT exist

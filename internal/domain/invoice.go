@@ -32,13 +32,14 @@ type InvoiceItem struct {
 }
 
 // GenerateInvoiceNumber formats the invoice number according to business rules:
-// "INV/{id_client}/{tahun}/{bulan}/{tanggal}" (e.g. INV/1/2026/09/19).
-func GenerateInvoiceNumber(clientID int64, issueDate time.Time) string {
-	return fmt.Sprintf("INV/%d/%04d/%02d/%02d",
+// "INV/{ID_CLIENT}/{TAHUN}/{BULAN}/{TGL}/{ID_INVOICE}" (e.g. INV/1/2026/09/19/1).
+func GenerateInvoiceNumber(clientID int64, issueDate time.Time, invoiceID int64) string {
+	return fmt.Sprintf("INV/%d/%04d/%02d/%02d/%d",
 		clientID,
 		issueDate.Year(),
 		int(issueDate.Month()),
 		issueDate.Day(),
+		invoiceID,
 	)
 }
 
