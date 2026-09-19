@@ -19,6 +19,7 @@ type Config struct {
 	SSHHost           string
 	SSHPrivateKeyPath string
 	DatabasePath      string
+	BackupBasePath    string
 
 	// SMTP Configuration
 	SMTPHost        string
@@ -99,6 +100,11 @@ func Parse() (*Config, error) {
 		databasePath = "data/bot.db"
 	}
 
+	backupBasePath := strings.TrimSpace(os.Getenv("BACKUP_BASE_PATH"))
+	if backupBasePath == "" {
+		backupBasePath = "/home/kava/backup_db"
+	}
+
 	// SMTP Settings
 	smtpHost := strings.TrimSpace(os.Getenv("SMTP_HOST"))
 	if smtpHost == "" {
@@ -137,6 +143,7 @@ func Parse() (*Config, error) {
 		SSHHost:           sshHost,
 		SSHPrivateKeyPath: sshKeyPath,
 		DatabasePath:      databasePath,
+		BackupBasePath:    backupBasePath,
 		SMTPHost:          smtpHost,
 		SMTPPort:          smtpPort,
 		SMTPSSL:           smtpSSL,

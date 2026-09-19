@@ -16,6 +16,8 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -70,10 +72,15 @@ func main() {
 
 	// 6. Initialize Infrastructure / Executors
 	localExec := executor.NewLocalExecutor()
+	sshExec := executor.NewSSHExecutor(localExec, executor.SSHConfig{
+		Host:           cfg.SSHHost,
+		PrivateKeyPath: cfg.SSHPrivateKeyPath,
+	})
 
 	// 7. Initialize Domain Services (Business Logic)
 	sysService := service.NewSystemService(localExec)
 	emailService := service.NewEmailService(cfg, "assets/logo.png", "assets/signature.png")
+	backupService := service.NewBackupService(sshExec)
 
 	// 8. Initialize Stateful Session Store & Flow Engine (1 Hour TTL)
 	sessionStore := session.NewMemoryStore(1 * time.Hour)
@@ -89,6 +96,7 @@ func main() {
 	flowEngine.Register(flow.NewTambahProdukFlow(productRepo))
 	flowEngine.Register(flow.NewEditProdukFlow(productRepo))
 	flowEngine.Register(flow.NewHapusProdukFlow(productRepo))
+	flowEngine.Register(flow.NewBackupFlow(backupService, cfg.BackupBasePath))
 
 	// 9. Initialize Bot Handlers
 	sysHandler := handlers.NewSystemHandler(sysService, cfg.ServerName)
@@ -106,6 +114,9 @@ func main() {
 	router.RegisterCommand("menu", helpHandler.HandleMenu)
 	router.RegisterCommand("help", helpHandler.HandleHelp)
 	router.RegisterCommand("status", sysHandler.HandleStatus)
+	router.RegisterCommand("backup", func(c *bot.Context) error {
+		return flowEngine.StartFlow(c, flow.BackupFlowID)
+	})
 
 	// 12. Register Reply Keyboard Button Triggers
 	// Kirim Invoice
@@ -162,6 +173,30 @@ func main() {
 	})
 	router.RegisterText("Hapus Produk", func(c *bot.Context) error {
 		return flowEngine.StartFlow(c, flow.HapusProdukFlowID)
+	})
+
+	// Backup Database
+	router.RegisterText(ui.ButtonBackupDB, func(c *bot.Context) error {
+		return flowEngine.StartFlow(c, flow.BackupFlowID)
+	})
+	router.RegisterText("Backup Database", func(c *bot.Context) error {
+		return flowEngine.StartFlow(c, flow.BackupFlowID)
+	})
+	router.RegisterText("Backup DB", func(c *bot.Context) error {
+		return flowEngine.StartFlow(c, flow.BackupFlowID)
+	})
+
+	// Callback: Delete Encryption Key Message Immediately
+	router.RegisterCallbackPrefix("delete_key:", func(c *bot.Context) error {
+		parts := strings.Split(c.CallbackData, ":")
+		if len(parts) == 2 {
+			if msgID, err := strconv.Atoi(parts[1]); err == nil {
+				delReq := tgbotapi.NewDeleteMessage(c.ChatID, msgID)
+				_, _ = c.Sender.Request(delReq)
+			}
+		}
+		_ = c.AnswerCallback("🔒 Kunci enkripsi berhasil dihapus dari chat demi keamanan.")
+		return nil
 	})
 
 	// Tutup Menu

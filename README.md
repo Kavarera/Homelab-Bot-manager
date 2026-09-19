@@ -49,11 +49,21 @@ Bot Telegram berbasis Golang yang dirancang untuk mengelola penagihan invoice ot
 - **Edit Produk**: Perbarui nama atau harga produk yang sudah ada secara mandiri.
 - **Hapus Produk (Soft Delete)**: Menghapus produk dari katalog aktif tanpa merusak integritas relasi item invoice lama (`deleted_at` timestamp).
 
-### 4. 🖥️ Monitoring Server
+### 4. 💾 Backup Database Remote VPS (PostgreSQL)
+
+- **Deteksi Otomatis Kontainer PostgreSQL**: Bot mengecek container Docker yang berjalan di VPS target melalui SSH (Tailscale VPN) dan secara cerdas memfilter kontainer yang berbasis image `postgres`.
+- **Zero Disk Garbage (Direct Streaming)**: Dump PostgreSQL dialirkan secara *real-time* via SSH `stdout` (`docker exec ... pg_dumpall`). Tidak ada file temporary atau sampah dump yang ditinggalkan di disk VPS.
+- **Kompresi Gzip & Enkripsi AES-256-GCM**: Stream dump dikompresi dengan Gzip dan dienkripsi menggunakan AES-256-GCM dengan kunci acak 32-byte berkekuatan militer.
+- **Penyimpanan Lokal Homelab Terstruktur**: File backup `.sql.gz.enc` disimpan di server homelab dengan struktur direktori rapi:
+  $$\text{/home/kava/backup\_db/}\{\text{container\_name}\}/\{\text{YYYYMMDD}\}/\text{backup\_}\{\text{container}\}\_\{\text{timestamp}\}\text{.sql.gz.enc}$$
+- **Kirim Dokumen ke Telegram**: Bot langsung mengirimkan file backup terenkripsi ke chat Telegram admin.
+- **Self-Destruct Encryption Key Message**: Kunci dekripsi dikirimkan dalam pesan terpisah dengan tombol **`🗑️ Hapus Pesan Kunci Sekarang`** untuk penghapusan instan, serta **Timer Goroutine 5 Menit** yang otomatis menghapus pesan kunci jika admin lupa menghapusnya secara manual.
+
+### 5. 🖥️ Monitoring Server
 
 - Command `/status` untuk memeriksa status host, uptime sistem, dan informasi lingkungan server.
 
-### 5. 🛡️ Keamanan & Antarmuka Interaktif
+### 6. 🛡️ Keamanan & Antarmuka Interaktif
 
 - **Whitelist Authorization**: Hanya Telegram User ID yang terdaftar di `.env` yang dapat mengakses bot.
 - **Panic Recovery & Structured Logging**: Dilengkapi middleware panic recovery dan logging terstruktur via `log/slog`.
@@ -140,13 +150,20 @@ TELEGRAM_TOKEN=123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ
 ALLOWED_USER_ID=123456789
 
 # ==========================================
-# KONFIGURASI SERVER & DATABASE
+# KONFIGURASI SERVER, SSH & DATABASE
 # ==========================================
 # Nama server / homelab yang ditampilkan di bot
 SERVER_NAME=HS1 Homelab Server
 
-# Lokasi penyimpanan file database SQLite
+# Lokasi penyimpanan file database SQLite internal bot
 DATABASE_PATH=data/bot.db
+
+# Koneksi SSH ke VPS target (menggunakan IP Tailscale VPN / Host SSH)
+SSH_HOST=payrollpro@100.x.x.x
+SSH_PRIVATE_KEY_PATH=~/.ssh/id_rsa
+
+# Folder penyimpanan arsip backup database di homelab
+BACKUP_BASE_PATH=/home/kava/backup_db
 
 # ==========================================
 # KONFIGURASI SMTP EMAIL
@@ -161,7 +178,7 @@ SMTP_SENDER_EMAIL=billing@example.com
 ```
 
 > [!NOTE]
-> File `.env` dan database `*.db` telah otomatis dikecualikan (`.gitignore`) agar data rahasia tidak ter-commit ke Git.
+> File `.env`, database `*.db`, dan file backup `*.enc` telah otomatis dikecualikan (`.gitignore`) agar data rahasia tidak ter-commit ke Git.
 
 ---
 
@@ -182,6 +199,10 @@ Build binary yang dapat dieksekusi:
 ```bash
 # Build untuk Linux / macOS
 go build -o hs1-bot ./cmd/bot
+
+# Cross-compile dari Windows untuk Linux (Ubuntu Homelab)
+# PowerShell:
+$env:GOOS="linux"; $env:GOARCH="amd64"; go build -o hs1-bot ./cmd/bot
 
 # Build untuk Windows
 go build -o hs1-bot.exe ./cmd/bot
@@ -209,8 +230,8 @@ Buka Telegram dan kirim perintah `/start` atau `/menu` ke bot Anda.
 +---------------------+---------------------+-----------------+
 | 📦 Tambah Produk    | ⚙️ Edit Produk      | 🗑️ Hapus Produk  |
 +---------------------+---------------------+-----------------+
-|                      🔽 Tutup Menu                          |
-+-------------------------------------------------------------+
+| 💾 Backup Database  | 🔽 Tutup Menu                         |
++---------------------+---------------------------------------+
 ```
 
 ---
@@ -273,12 +294,31 @@ Buka Telegram dan kirim perintah `/start` atau `/menu` ke bot Anda.
 
 ---
 
-### 4. ⌨️ Tombol Navigasi & Bantuan
+### 4. 💾 Alur Backup Database VPS (PostgreSQL)
+
+1. Klik tombol **`💾 Backup Database`** atau ketik command `/backup`.
+2. **Pilih Kontainer PostgreSQL**:
+   - Bot otomatis menginspeksi VPS melalui SSH dan hanya menampilkan container yang berbasis image PostgreSQL (misal: `payroll_db_postgres`).
+   - Klik nama container target.
+3. **Konfirmasi & Eksekusi**:
+   - Bot menampilkan detail container (Nama & Image ID) $\rightarrow$ Klik **`✅ Konfirmasi`**.
+4. **Proses Backup Otomatis**:
+   - Bot melakukan *direct streaming* `pg_dumpall` via SSH tanpa meninggalkan file temporary di VPS.
+   - Stream data dikompresi (Gzip) dan dienkripsi dengan AES-256-GCM menggunakan kunci 32-byte unik.
+   - File tersimpan di homelab: `/home/kava/backup_db/{container}/{YYYYMMDD}/backup_{container}_{timestamp}.sql.gz.enc`.
+   - Bot mengirim dokumen `.sql.gz.enc` ke chat Telegram.
+   - Bot mengirim pesan kunci dekripsi rahasia dengan tombol **`🗑️ Hapus Pesan Kunci Sekarang`**.
+   - **Auto Self-Destruct**: Pesan kunci akan otomatis terhapus dalam waktu 5 menit jika tidak dihapus manual.
+
+---
+
+### 5. ⌨️ Tombol Navigasi & Bantuan
 
 - **`❌ Batalkan`**: Membatalkan flow/wizard yang sedang berjalan kapan saja.
 - **`⏩ Skip`**: Melewati langkah edit tanpa mengubah data sebelumnya.
 - **`🔽 Tutup Menu`**: Menyembunyikan Reply Keyboard saat tidak digunakan.
 - **`/status`**: Memeriksa kondisi sistem dan uptime server.
+- **`/backup`**: Memulai wizard backup database remote VPS.
 - **`/help`**: Menampilkan daftar perintah dan panduan bantuan.
 
 ---

@@ -17,6 +17,7 @@ const (
 	ButtonTambahProduk  = "📦 Tambah Produk"
 	ButtonEditProduk    = "⚙️ Edit Produk"
 	ButtonHapusProduk   = "🗑️ Hapus Produk"
+	ButtonBackupDB      = "💾 Backup Database"
 	ButtonHideMenu      = "🔽 Tutup Menu"
 	ButtonSkip          = "⏩ Skip"
 	ButtonConfirm       = "✅ Konfirmasi"
@@ -30,7 +31,17 @@ var defaultMainMenuRows = [][]string{
 	{ButtonKirimInvoice},
 	{ButtonTambahClient, ButtonEditClient, ButtonHapusClient},
 	{ButtonTambahProduk, ButtonEditProduk, ButtonHapusProduk},
-	{ButtonHideMenu},
+	{ButtonBackupDB, ButtonHideMenu},
+}
+
+// BuildDeleteKeyInlineKeyboard creates an inline keyboard button attached to the encryption key message.
+func BuildDeleteKeyInlineKeyboard(msgID int) tgbotapi.InlineKeyboardMarkup {
+	callbackData := fmt.Sprintf("delete_key:%d", msgID)
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🗑️ Hapus Pesan Kunci Sekarang", callbackData),
+		),
+	)
 }
 
 // SetMainMenuRows configures the default main menu buttons.

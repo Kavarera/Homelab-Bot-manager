@@ -155,7 +155,10 @@ func TestMainMenuKeyboard(t *testing.T) {
 	if kb.Keyboard[0][0].Text != ButtonKirimInvoice {
 		t.Errorf("expected button '%s', got '%s'", ButtonKirimInvoice, kb.Keyboard[0][0].Text)
 	}
-	if kb.Keyboard[3][0].Text != ButtonHideMenu {
-		t.Errorf("expected button '%s', got '%s'", ButtonHideMenu, kb.Keyboard[3][0].Text)
+	if kb.Keyboard[3][0].Text != ButtonBackupDB {
+		t.Errorf("expected button '%s', got '%s'", ButtonBackupDB, kb.Keyboard[3][0].Text)
+	}
+	if kb.Keyboard[3][1].Text != ButtonHideMenu {
+		t.Errorf("expected button '%s', got '%s'", ButtonHideMenu, kb.Keyboard[3][1].Text)
 	}
 }
