@@ -85,8 +85,10 @@ func main() {
 	flowEngine.Register(flow.NewInvoiceFlow(clientRepo, productRepo, invoiceRepo, emailService))
 	flowEngine.Register(flow.NewTambahClientFlow(clientRepo, productRepo))
 	flowEngine.Register(flow.NewEditClientFlow(clientRepo, productRepo))
+	flowEngine.Register(flow.NewHapusClientFlow(clientRepo))
 	flowEngine.Register(flow.NewTambahProdukFlow(productRepo))
 	flowEngine.Register(flow.NewEditProdukFlow(productRepo))
+	flowEngine.Register(flow.NewHapusProdukFlow(productRepo))
 
 	// 9. Initialize Bot Handlers
 	sysHandler := handlers.NewSystemHandler(sysService, cfg.ServerName)
@@ -130,6 +132,14 @@ func main() {
 		return flowEngine.StartFlow(c, flow.EditClientFlowID)
 	})
 
+	// Hapus Client
+	router.RegisterText(ui.ButtonHapusClient, func(c *bot.Context) error {
+		return flowEngine.StartFlow(c, flow.HapusClientFlowID)
+	})
+	router.RegisterText("Hapus Client", func(c *bot.Context) error {
+		return flowEngine.StartFlow(c, flow.HapusClientFlowID)
+	})
+
 	// Tambah Produk
 	router.RegisterText(ui.ButtonTambahProduk, func(c *bot.Context) error {
 		return flowEngine.StartFlow(c, flow.TambahProdukFlowID)
@@ -144,6 +154,14 @@ func main() {
 	})
 	router.RegisterText("Edit Produk", func(c *bot.Context) error {
 		return flowEngine.StartFlow(c, flow.EditProdukFlowID)
+	})
+
+	// Hapus Produk
+	router.RegisterText(ui.ButtonHapusProduk, func(c *bot.Context) error {
+		return flowEngine.StartFlow(c, flow.HapusProdukFlowID)
+	})
+	router.RegisterText("Hapus Produk", func(c *bot.Context) error {
+		return flowEngine.StartFlow(c, flow.HapusProdukFlowID)
 	})
 
 	// Tutup Menu

@@ -59,8 +59,8 @@ func (r *sqliteClientRepository) Create(ctx context.Context, client *domain.Clie
 
 func (r *sqliteClientRepository) GetByID(ctx context.Context, id int64) (*domain.Client, error) {
 	query := `
-		SELECT id, pic_name, company_name, company_address, company_email, product_ordered, created_at, updated_at
-		FROM clients WHERE id = ?
+		SELECT id, pic_name, company_name, company_address, company_email, product_ordered, created_at, updated_at, deleted_at
+		FROM clients WHERE id = ? AND deleted_at IS NULL
 	`
 	row := r.db.QueryRowContext(ctx, query, id)
 
@@ -74,6 +74,7 @@ func (r *sqliteClientRepository) GetByID(ctx context.Context, id int64) (*domain
 		&c.ProductOrdered,
 		&c.CreatedAt,
 		&c.UpdatedAt,
+		&c.DeletedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -86,8 +87,8 @@ func (r *sqliteClientRepository) GetByID(ctx context.Context, id int64) (*domain
 
 func (r *sqliteClientRepository) List(ctx context.Context) ([]domain.Client, error) {
 	query := `
-		SELECT id, pic_name, company_name, company_address, company_email, product_ordered, created_at, updated_at
-		FROM clients ORDER BY id ASC
+		SELECT id, pic_name, company_name, company_address, company_email, product_ordered, created_at, updated_at, deleted_at
+		FROM clients WHERE deleted_at IS NULL ORDER BY id ASC
 	`
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
@@ -107,6 +108,7 @@ func (r *sqliteClientRepository) List(ctx context.Context) ([]domain.Client, err
 			&c.ProductOrdered,
 			&c.CreatedAt,
 			&c.UpdatedAt,
+			&c.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -120,7 +122,7 @@ func (r *sqliteClientRepository) Update(ctx context.Context, client *domain.Clie
 	query := `
 		UPDATE clients
 		SET pic_name = ?, company_name = ?, company_address = ?, company_email = ?, product_ordered = ?, updated_at = ?
-		WHERE id = ?
+		WHERE id = ? AND deleted_at IS NULL
 	`
 	client.UpdatedAt = time.Now()
 	_, err := r.db.ExecContext(ctx, query,
@@ -136,7 +138,8 @@ func (r *sqliteClientRepository) Update(ctx context.Context, client *domain.Clie
 }
 
 func (r *sqliteClientRepository) Delete(ctx context.Context, id int64) error {
-	query := `DELETE FROM clients WHERE id = ?`
-	_, err := r.db.ExecContext(ctx, query, id)
+	now := time.Now()
+	query := `UPDATE clients SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`
+	_, err := r.db.ExecContext(ctx, query, now, now, id)
 	return err
 }

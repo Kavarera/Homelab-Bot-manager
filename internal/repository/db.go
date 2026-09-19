@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS clients (
     company_email TEXT NOT NULL,
     product_ordered TEXT NOT NULL DEFAULT '',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS products (
@@ -29,7 +30,8 @@ CREATE TABLE IF NOT EXISTS products (
     name TEXT NOT NULL,
     price REAL NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS invoices (
@@ -87,8 +89,15 @@ func InitDB(dbPath string) (*sql.DB, error) {
 	return db, nil
 }
 
-// Migrate executes the initial DDL schema.
+// Migrate executes the initial DDL schema and non-destructive column additions.
 func Migrate(ctx context.Context, db *sql.DB) error {
-	_, err := db.ExecContext(ctx, schemaDDL)
-	return err
+	if _, err := db.ExecContext(ctx, schemaDDL); err != nil {
+		return err
+	}
+
+	// Non-destructive column additions for existing databases
+	_, _ = db.ExecContext(ctx, `ALTER TABLE clients ADD COLUMN deleted_at DATETIME DEFAULT NULL;`)
+	_, _ = db.ExecContext(ctx, `ALTER TABLE products ADD COLUMN deleted_at DATETIME DEFAULT NULL;`)
+
+	return nil
 }

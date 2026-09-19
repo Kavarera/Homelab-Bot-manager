@@ -73,14 +73,25 @@ func TestClientRepository_CRUD(t *testing.T) {
 		t.Errorf("expected 1 client in list, got %d", len(list))
 	}
 
-	// 5. Delete
+	// 5. Delete (Soft Delete)
 	err = clientRepo.Delete(ctx, client.ID)
 	if err != nil {
 		t.Fatalf("failed to delete client: %v", err)
 	}
 	deleted, _ := clientRepo.GetByID(ctx, client.ID)
 	if deleted != nil {
-		t.Error("expected client to be deleted, found record")
+		t.Error("expected client to be soft-deleted (not found via GetByID)")
+	}
+	listAfterDelete, _ := clientRepo.List(ctx)
+	if len(listAfterDelete) != 0 {
+		t.Errorf("expected 0 active clients in list, got %d", len(listAfterDelete))
+	}
+
+	// Verify in DB that record physically exists with deleted_at set
+	var rawDeletedAt string
+	err = clientRepo.db.QueryRowContext(ctx, "SELECT deleted_at FROM clients WHERE id = ?", client.ID).Scan(&rawDeletedAt)
+	if err != nil || rawDeletedAt == "" {
+		t.Errorf("expected deleted_at to be populated in database, err: %v, deleted_at: %s", err, rawDeletedAt)
 	}
 }
 
@@ -107,6 +118,27 @@ func TestProductRepository_CRUD(t *testing.T) {
 	}
 	if retrieved.Name != "Cloud VPS Hosting" || retrieved.Price != 1500000.0 {
 		t.Errorf("unexpected product data: %+v", retrieved)
+	}
+
+	// Delete (Soft Delete)
+	err = productRepo.Delete(ctx, product.ID)
+	if err != nil {
+		t.Fatalf("failed to delete product: %v", err)
+	}
+	deletedProd, _ := productRepo.GetByID(ctx, product.ID)
+	if deletedProd != nil {
+		t.Error("expected product to be soft-deleted (not found via GetByID)")
+	}
+	prodsAfterDelete, _ := productRepo.List(ctx)
+	if len(prodsAfterDelete) != 0 {
+		t.Errorf("expected 0 active products in list, got %d", len(prodsAfterDelete))
+	}
+
+	// Verify in DB that record physically exists with deleted_at set
+	var rawDeletedAt string
+	err = productRepo.db.QueryRowContext(ctx, "SELECT deleted_at FROM products WHERE id = ?", product.ID).Scan(&rawDeletedAt)
+	if err != nil || rawDeletedAt == "" {
+		t.Errorf("expected deleted_at to be populated in database, err: %v, deleted_at: %s", err, rawDeletedAt)
 	}
 }
 

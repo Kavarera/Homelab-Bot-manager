@@ -147,3 +147,50 @@ func TestEditClientFlow_SuccessWithSkipAndProductModification(t *testing.T) {
 		t.Errorf("expected both products after edit, got %s", updated.ProductOrdered)
 	}
 }
+
+func TestHapusClientFlow_Success(t *testing.T) {
+	db, err := repository.InitDB(":memory:")
+	if err != nil {
+		t.Fatalf("failed to init db: %v", err)
+	}
+	defer db.Close()
+
+	clientRepo := repository.NewClientRepository(db)
+
+	client := &domain.Client{
+		CompanyName:    "PT. KavaLabs Indonesia",
+		PICName:        "Darmawati",
+		CompanyAddress: "WTC Matahari",
+		CompanyEmail:   "finance@kavalabs.id",
+		ProductOrdered: "PayrollPro License (Month)",
+	}
+	_ = clientRepo.Create(context.Background(), client)
+
+	store := session.NewMemoryStore(1 * time.Hour)
+	engine := flow.NewEngine(store, 1*time.Hour)
+	engine.Register(flow.NewHapusClientFlow(clientRepo))
+
+	const userID int64 = 55555
+
+	// 1. Start Hapus Client Flow
+	startCtx := createTestBotContext(userID, ui.ButtonHapusClient)
+	_ = engine.StartFlow(startCtx, flow.HapusClientFlowID)
+
+	// 2. Select Client "PT. KavaLabs Indonesia"
+	_, _ = engine.HandleActiveFlow(createTestBotContext(userID, "PT. KavaLabs Indonesia"))
+
+	// 3. Confirm Delete
+	handled, err := engine.HandleActiveFlow(createTestBotContext(userID, ui.ButtonConfirm))
+	if err != nil || !handled {
+		t.Fatalf("expected delete to be handled: %v", err)
+	}
+
+	// Verify client is soft-deleted
+	activeClients, err := clientRepo.List(context.Background())
+	if err != nil {
+		t.Fatalf("failed to list clients: %v", err)
+	}
+	if len(activeClients) != 0 {
+		t.Errorf("expected 0 active clients, got %d", len(activeClients))
+	}
+}

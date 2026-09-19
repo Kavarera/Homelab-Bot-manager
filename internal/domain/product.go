@@ -10,11 +10,12 @@ import (
 
 // Product represents an item/service product entity in the database.
 type Product struct {
-	ID        int64     `json:"id"`
-	Name      string    `json:"name"`
-	Price     float64   `json:"price"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        int64      `json:"id"`
+	Name      string     `json:"name"`
+	Price     float64    `json:"price"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty"`
 }
 
 // ParsePrice parses user input for product price supporting raw digits, 'k'/'K' (thousands), 'm'/'M' (millions), and 'Rp' prefixes.

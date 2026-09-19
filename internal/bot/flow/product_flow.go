@@ -13,6 +13,7 @@ import (
 const (
 	TambahProdukFlowID = "tambah_produk"
 	EditProdukFlowID   = "edit_produk"
+	HapusProdukFlowID  = "hapus_produk"
 )
 
 // NewTambahProdukFlow creates the multi-step flow to add a new product with price parsing.
@@ -253,6 +254,106 @@ func NewEditProdukFlow(productRepo repository.ProductRepository) Flow {
 					"📦 Nama: *%s*\n"+
 					"💵 Harga: *IDR %s*",
 				updatedProduct.ID, updatedProduct.Name, template.FormatCurrencyShort(updatedProduct.Price),
+			)
+			_ = c.ReplyWithReplyKeyboard(successMsg, ui.MainMenuKeyboard())
+			return c.Complete(), nil
+		}).
+		Build()
+}
+
+// NewHapusProdukFlow creates the multi-step flow to soft-delete a product.
+func NewHapusProdukFlow(productRepo repository.ProductRepository) Flow {
+	return NewBuilder(HapusProdukFlowID).
+		// Step 1: Select product to delete
+		InitialStep("pilih_produk", func(c *Context) (Action, error) {
+			ctx := context.Background()
+			products, err := productRepo.List(ctx)
+			if err != nil || len(products) == 0 {
+				_ = c.ReplyAndRemoveKeyboard("❌ Belum ada produk yang terdaftar untuk dihapus.")
+				return c.Complete(), nil
+			}
+
+			var productButtons []string
+			for _, p := range products {
+				productButtons = append(productButtons, p.Name)
+			}
+
+			_ = c.ReplyWithStepKeyboard("🗑️ *Hapus Produk - Pilih Produk:*\n\nSilakan pilih produk yang ingin dihapus:", productButtons...)
+			return c.Next("proses_pilih_produk"), nil
+		}).
+
+		// Step 2: Validate selected product and show confirmation
+		Step("proses_pilih_produk", func(c *Context) (Action, error) {
+			ctx := context.Background()
+			products, err := productRepo.List(ctx)
+			if err != nil {
+				_ = c.ReplyAndRemoveKeyboard(fmt.Sprintf("❌ Gagal membaca data produk: %v", err))
+				return c.Complete(), nil
+			}
+
+			selectedText := strings.TrimSpace(c.RawText)
+			var selectedProduct *domain.Product
+
+			for i := range products {
+				if strings.EqualFold(strings.TrimSpace(products[i].Name), selectedText) {
+					selectedProduct = &products[i]
+					break
+				}
+			}
+
+			if selectedProduct == nil {
+				var productButtons []string
+				for _, p := range products {
+					productButtons = append(productButtons, p.Name)
+				}
+				_ = c.ReplyWithStepKeyboard("❌ Produk tidak ditemukan. Silakan pilih dari tombol:", productButtons...)
+				return c.Stay(), nil
+			}
+
+			c.Set("product_id", selectedProduct.ID)
+			c.Set("product_name", selectedProduct.Name)
+			c.Set("product_price", fmt.Sprintf("%.0f", selectedProduct.Price))
+
+			priceShort := template.FormatCurrencyShort(selectedProduct.Price)
+			prompt := fmt.Sprintf(
+				"⚠️ *Konfirmasi Hapus Produk:*\n\n"+
+					"Apakah Anda yakin ingin menghapus produk berikut?\n\n"+
+					"📦 Nama Produk: *%s*\n"+
+					"💵 Harga: *IDR %s* (Rp %.0f)\n\n"+
+					"Klik \"%s\" untuk menghapus atau \"%s\" untuk membatalkan.",
+				selectedProduct.Name,
+				priceShort,
+				selectedProduct.Price,
+				ui.ButtonConfirm,
+				ui.DefaultCancelButton,
+			)
+
+			kb := ui.BuildStepKeyboardFlat(ui.ButtonConfirm)
+			_ = c.ReplyWithReplyKeyboard(prompt, kb)
+			return c.Next("eksekusi_hapus_produk"), nil
+		}).
+
+		// Step 3: Execute soft delete on confirmation
+		Step("eksekusi_hapus_produk", func(c *Context) (Action, error) {
+			if !ui.IsConfirmMessage(c.RawText) {
+				_ = c.ReplyWithReplyKeyboard("Klik '"+ui.ButtonConfirm+"' untuk menghapus atau '"+ui.DefaultCancelButton+"' untuk membatalkan.", ui.BuildStepKeyboardFlat(ui.ButtonConfirm))
+				return c.Stay(), nil
+			}
+
+			prodIDInt, _ := c.GetInt("product_id")
+			prodName, _ := c.GetString("product_name")
+
+			ctx := context.Background()
+			if err := productRepo.Delete(ctx, int64(prodIDInt)); err != nil {
+				_ = c.ReplyWithReplyKeyboard(fmt.Sprintf("❌ Gagal menghapus produk: %v", err), ui.MainMenuKeyboard())
+				return c.Complete(), nil
+			}
+
+			successMsg := fmt.Sprintf(
+				"✅ *Produk Berhasil Dihapus (Soft Delete)!*\n\n"+
+					"📦 Produk: *%s*\n"+
+					"Produk telah dinonaktifkan dari sistem.",
+				prodName,
 			)
 			_ = c.ReplyWithReplyKeyboard(successMsg, ui.MainMenuKeyboard())
 			return c.Complete(), nil

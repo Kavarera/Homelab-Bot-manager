@@ -12,6 +12,7 @@ import (
 const (
 	TambahClientFlowID = "tambah_client"
 	EditClientFlowID   = "edit_client"
+	HapusClientFlowID  = "hapus_client"
 )
 
 // NewTambahClientFlow creates the multi-step flow to register a new client.
@@ -647,4 +648,112 @@ func showClientFinalSummary(c *Context) (Action, error) {
 	kb := ui.BuildStepKeyboardFlat(ui.ButtonConfirm)
 	_ = c.ReplyWithReplyKeyboard(summary, kb)
 	return c.Next("konfirmasi_update_client"), nil
+}
+
+// NewHapusClientFlow creates the multi-step flow to soft-delete a client.
+func NewHapusClientFlow(clientRepo repository.ClientRepository) Flow {
+	return NewBuilder(HapusClientFlowID).
+		// Step 1: Select client to delete
+		InitialStep("pilih_client", func(c *Context) (Action, error) {
+			ctx := context.Background()
+			clients, err := clientRepo.List(ctx)
+			if err != nil || len(clients) == 0 {
+				_ = c.ReplyAndRemoveKeyboard("❌ Belum ada client yang terdaftar untuk dihapus.")
+				return c.Complete(), nil
+			}
+
+			var clientButtons []string
+			for _, cl := range clients {
+				clientButtons = append(clientButtons, cl.CompanyName)
+			}
+
+			_ = c.ReplyWithStepKeyboard("🗑️ *Hapus Client - Pilih Client:*\n\nSilakan pilih client yang ingin dihapus:", clientButtons...)
+			return c.Next("proses_pilih_client"), nil
+		}).
+
+		// Step 2: Validate selected client and show confirmation
+		Step("proses_pilih_client", func(c *Context) (Action, error) {
+			ctx := context.Background()
+			clients, err := clientRepo.List(ctx)
+			if err != nil {
+				_ = c.ReplyAndRemoveKeyboard(fmt.Sprintf("❌ Gagal membaca data client: %v", err))
+				return c.Complete(), nil
+			}
+
+			selectedText := strings.TrimSpace(c.RawText)
+			var selectedClient *domain.Client
+
+			for i := range clients {
+				if strings.EqualFold(strings.TrimSpace(clients[i].CompanyName), selectedText) {
+					selectedClient = &clients[i]
+					break
+				}
+			}
+
+			if selectedClient == nil {
+				var clientButtons []string
+				for _, cl := range clients {
+					clientButtons = append(clientButtons, cl.CompanyName)
+				}
+				_ = c.ReplyWithStepKeyboard("❌ Client tidak ditemukan. Silakan pilih dari tombol:", clientButtons...)
+				return c.Stay(), nil
+			}
+
+			c.Set("client_id", selectedClient.ID)
+			c.Set("company_name", selectedClient.CompanyName)
+
+			prodList := selectedClient.ProductOrdered
+			if strings.TrimSpace(prodList) == "" {
+				prodList = "(Tidak ada)"
+			}
+
+			prompt := fmt.Sprintf(
+				"⚠️ *Konfirmasi Hapus Client:*\n\n"+
+					"Apakah Anda yakin ingin menghapus client berikut?\n\n"+
+					"🏢 Perusahaan: *%s*\n"+
+					"👤 PIC: *%s*\n"+
+					"📍 Alamat: *%s*\n"+
+					"✉️ Email: *%s*\n"+
+					"📦 Produk: *%s*\n\n"+
+					"Klik \"%s\" untuk menghapus atau \"%s\" untuk membatalkan.",
+				selectedClient.CompanyName,
+				selectedClient.PICName,
+				selectedClient.CompanyAddress,
+				selectedClient.CompanyEmail,
+				prodList,
+				ui.ButtonConfirm,
+				ui.DefaultCancelButton,
+			)
+
+			kb := ui.BuildStepKeyboardFlat(ui.ButtonConfirm)
+			_ = c.ReplyWithReplyKeyboard(prompt, kb)
+			return c.Next("eksekusi_hapus_client"), nil
+		}).
+
+		// Step 3: Execute soft delete on confirmation
+		Step("eksekusi_hapus_client", func(c *Context) (Action, error) {
+			if !ui.IsConfirmMessage(c.RawText) {
+				_ = c.ReplyWithReplyKeyboard("Klik '"+ui.ButtonConfirm+"' untuk menghapus atau '"+ui.DefaultCancelButton+"' untuk membatalkan.", ui.BuildStepKeyboardFlat(ui.ButtonConfirm))
+				return c.Stay(), nil
+			}
+
+			clientIDInt, _ := c.GetInt("client_id")
+			companyName, _ := c.GetString("company_name")
+
+			ctx := context.Background()
+			if err := clientRepo.Delete(ctx, int64(clientIDInt)); err != nil {
+				_ = c.ReplyWithReplyKeyboard(fmt.Sprintf("❌ Gagal menghapus client: %v", err), ui.MainMenuKeyboard())
+				return c.Complete(), nil
+			}
+
+			successMsg := fmt.Sprintf(
+				"✅ *Client Berhasil Dihapus (Soft Delete)!*\n\n"+
+					"🏢 Client: *%s*\n"+
+					"Data client telah dinonaktifkan dari sistem.",
+				companyName,
+			)
+			_ = c.ReplyWithReplyKeyboard(successMsg, ui.MainMenuKeyboard())
+			return c.Complete(), nil
+		}).
+		Build()
 }

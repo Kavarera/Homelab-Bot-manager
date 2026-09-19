@@ -41,11 +41,13 @@ Bot Telegram berbasis Golang yang dirancang untuk mengelola penagihan invoice ot
 
 - **Tambah Client Baru**: Input Nama Perusahaan, Nama PIC, Alamat, Email, serta pemilihan produk-produk yang dilanggan.
 - **Edit Client**: Pembaruan data fleksibel per kolom dengan dukungan tombol `⏩ Skip`, serta fitur tambah produk langganan (`➕ Tambah Produk`) dan hapus produk (`➖ Hapus Produk`).
+- **Hapus Client (Soft Delete)**: Menghapus client dari daftar aktif tanpa menghilangkan riwayat invoice terdahulu di database (`deleted_at` timestamp).
 
 ### 3. 📦 Manajemen Produk
 
 - **Tambah Produk**: Input nama produk dan harga dengan parser harga cerdas (misal: `400000`, `400k`, `1.5M`, `Rp 400.000`).
 - **Edit Produk**: Perbarui nama atau harga produk yang sudah ada secara mandiri.
+- **Hapus Produk (Soft Delete)**: Menghapus produk dari katalog aktif tanpa merusak integritas relasi item invoice lama (`deleted_at` timestamp).
 
 ### 4. 🖥️ Monitoring Server
 
@@ -75,7 +77,7 @@ hs1-bot/
 ├── internal/
 │   ├── assets/              # Embedded assets via //go:embed
 │   ├── bot/                 # Telegram Bot router, middleware, poller, & context
-│   │   ├── flow/            # State machine multi-step wizard (Invoice, Client, Produk)
+│   │   ├── flow/            # State machine multi-step wizard (Invoice, Client, Produk, Delete)
 │   │   ├── handlers/        # Command handlers (Help, System Status)
 │   │   ├── middleware/      # Auth, Logger, & Recover middleware
 │   │   ├── session/         # In-memory session store dengan TTL & auto-cleanup
@@ -200,15 +202,15 @@ Buka Telegram dan kirim perintah `/start` atau `/menu` ke bot Anda.
 ### 📱 Menu Utama
 
 ```
-+------------------------------------------+
-|            📄 Kirim Invoice              |
-+--------------------+---------------------+
-| 🏢 Tambah Client   | ✏️ Edit Client      |
-+--------------------+---------------------+
-| 📦 Tambah Produk   | ⚙️ Edit Produk      |
-+--------------------+---------------------+
-|            🔽 Tutup Menu                 |
-+------------------------------------------+
++-------------------------------------------------------------+
+|                      📄 Kirim Invoice                       |
++---------------------+---------------------+-----------------+
+| 🏢 Tambah Client    | ✏️ Edit Client      | 🗑️ Hapus Client  |
++---------------------+---------------------+-----------------+
+| 📦 Tambah Produk    | ⚙️ Edit Produk      | 🗑️ Hapus Produk  |
++---------------------+---------------------+-----------------+
+|                      🔽 Tutup Menu                          |
++-------------------------------------------------------------+
 ```
 
 ---
@@ -230,7 +232,7 @@ Buka Telegram dan kirim perintah `/start` atau `/menu` ke bot Anda.
 
 ---
 
-### 2. 🏢 Alur Tambah & Edit Client
+### 2. 🏢 Alur Manajemen Client (Tambah, Edit, Hapus)
 
 - **Tambah Client**:
   1. Masukkan Nama Perusahaan (contoh: `PT. Maju Bersama`).
@@ -243,10 +245,14 @@ Buka Telegram dan kirim perintah `/start` atau `/menu` ke bot Anda.
   2. Masukkan nilai baru atau klik **`⏩ Skip`** untuk melewati field tertentu.
   3. Kelola produk langganan: klik **`➕ Tambah Produk`**, **`➖ Hapus Produk`**, atau **`⏩ Skip`**.
   4. Konfirmasi perubahan.
+- **Hapus Client (Soft Delete)**:
+  1. Klik tombol **`🗑️ Hapus Client`**.
+  2. Pilih client dari daftar tombol.
+  3. Periksa ringkasan client $\rightarrow$ Klik **`✅ Konfirmasi`** untuk menonaktifkan.
 
 ---
 
-### 3. 📦 Alur Tambah & Edit Produk
+### 3. 📦 Alur Manajemen Produk (Tambah, Edit, Hapus)
 
 - **Tambah Produk**:
   1. Masukkan Nama Produk / Layanan (contoh: `Dedicated Server Epyc`).
@@ -260,6 +266,10 @@ Buka Telegram dan kirim perintah `/start` atau `/menu` ke bot Anda.
   2. Ketik nama baru atau klik **`⏩ Skip`**.
   3. Ketik harga baru atau klik **`⏩ Skip`**.
   4. Konfirmasi perubahan.
+- **Hapus Produk (Soft Delete)**:
+  1. Klik tombol **`🗑️ Hapus Produk`**.
+  2. Pilih produk dari daftar tombol.
+  3. Periksa ringkasan produk & harga $\rightarrow$ Klik **`✅ Konfirmasi`** untuk menonaktifkan.
 
 ---
 

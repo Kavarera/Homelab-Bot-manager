@@ -94,3 +94,42 @@ func TestEditProdukFlow_Success(t *testing.T) {
 		t.Errorf("unexpected updated product data: %+v", updated)
 	}
 }
+
+func TestHapusProdukFlow_Success(t *testing.T) {
+	db, err := repository.InitDB(":memory:")
+	if err != nil {
+		t.Fatalf("failed to init db: %v", err)
+	}
+	defer db.Close()
+
+	productRepo := repository.NewProductRepository(db)
+	prod := &domain.Product{Name: "Disposable Service", Price: 50000.0}
+	_ = productRepo.Create(context.Background(), prod)
+
+	store := session.NewMemoryStore(1 * time.Hour)
+	engine := flow.NewEngine(store, 1*time.Hour)
+	engine.Register(flow.NewHapusProdukFlow(productRepo))
+
+	const userID int64 = 66666
+
+	// 1. Start Flow
+	_ = engine.StartFlow(createTestBotContext(userID, ui.ButtonHapusProduk), flow.HapusProdukFlowID)
+
+	// 2. Select Product
+	_, _ = engine.HandleActiveFlow(createTestBotContext(userID, "Disposable Service"))
+
+	// 3. Confirm Delete
+	handled, err := engine.HandleActiveFlow(createTestBotContext(userID, ui.ButtonConfirm))
+	if err != nil || !handled {
+		t.Fatalf("expected delete to be handled: %v", err)
+	}
+
+	// Verify in DB that product is soft-deleted
+	activeProducts, err := productRepo.List(context.Background())
+	if err != nil {
+		t.Fatalf("failed to list products: %v", err)
+	}
+	if len(activeProducts) != 0 {
+		t.Errorf("expected 0 active products, got %d", len(activeProducts))
+	}
+}

@@ -56,8 +56,8 @@ func (r *sqliteProductRepository) Create(ctx context.Context, product *domain.Pr
 
 func (r *sqliteProductRepository) GetByID(ctx context.Context, id int64) (*domain.Product, error) {
 	query := `
-		SELECT id, name, price, created_at, updated_at
-		FROM products WHERE id = ?
+		SELECT id, name, price, created_at, updated_at, deleted_at
+		FROM products WHERE id = ? AND deleted_at IS NULL
 	`
 	row := r.db.QueryRowContext(ctx, query, id)
 
@@ -68,6 +68,7 @@ func (r *sqliteProductRepository) GetByID(ctx context.Context, id int64) (*domai
 		&p.Price,
 		&p.CreatedAt,
 		&p.UpdatedAt,
+		&p.DeletedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -80,8 +81,8 @@ func (r *sqliteProductRepository) GetByID(ctx context.Context, id int64) (*domai
 
 func (r *sqliteProductRepository) List(ctx context.Context) ([]domain.Product, error) {
 	query := `
-		SELECT id, name, price, created_at, updated_at
-		FROM products ORDER BY id ASC
+		SELECT id, name, price, created_at, updated_at, deleted_at
+		FROM products WHERE deleted_at IS NULL ORDER BY id ASC
 	`
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
@@ -98,6 +99,7 @@ func (r *sqliteProductRepository) List(ctx context.Context) ([]domain.Product, e
 			&p.Price,
 			&p.CreatedAt,
 			&p.UpdatedAt,
+			&p.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -111,7 +113,7 @@ func (r *sqliteProductRepository) Update(ctx context.Context, product *domain.Pr
 	query := `
 		UPDATE products
 		SET name = ?, price = ?, updated_at = ?
-		WHERE id = ?
+		WHERE id = ? AND deleted_at IS NULL
 	`
 	product.UpdatedAt = time.Now()
 	_, err := r.db.ExecContext(ctx, query,
@@ -124,7 +126,8 @@ func (r *sqliteProductRepository) Update(ctx context.Context, product *domain.Pr
 }
 
 func (r *sqliteProductRepository) Delete(ctx context.Context, id int64) error {
-	query := `DELETE FROM products WHERE id = ?`
-	_, err := r.db.ExecContext(ctx, query, id)
+	now := time.Now()
+	query := `UPDATE products SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`
+	_, err := r.db.ExecContext(ctx, query, now, now, id)
 	return err
 }

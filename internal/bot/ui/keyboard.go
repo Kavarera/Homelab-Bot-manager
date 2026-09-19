@@ -13,8 +13,10 @@ const (
 	ButtonKirimInvoice  = "📄 Kirim Invoice"
 	ButtonTambahClient  = "🏢 Tambah Client"
 	ButtonEditClient    = "✏️ Edit Client"
+	ButtonHapusClient   = "🗑️ Hapus Client"
 	ButtonTambahProduk  = "📦 Tambah Produk"
 	ButtonEditProduk    = "⚙️ Edit Produk"
+	ButtonHapusProduk   = "🗑️ Hapus Produk"
 	ButtonHideMenu      = "🔽 Tutup Menu"
 	ButtonSkip          = "⏩ Skip"
 	ButtonConfirm       = "✅ Konfirmasi"
@@ -26,8 +28,8 @@ const (
 
 var defaultMainMenuRows = [][]string{
 	{ButtonKirimInvoice},
-	{ButtonTambahClient, ButtonEditClient},
-	{ButtonTambahProduk, ButtonEditProduk},
+	{ButtonTambahClient, ButtonEditClient, ButtonHapusClient},
+	{ButtonTambahProduk, ButtonEditProduk, ButtonHapusProduk},
 	{ButtonHideMenu},
 }
 

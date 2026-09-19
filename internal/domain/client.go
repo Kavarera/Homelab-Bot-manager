@@ -7,14 +7,15 @@ import (
 
 // Client represents a customer/client entity in the database.
 type Client struct {
-	ID             int64     `json:"id"`
-	PICName        string    `json:"pic_name"`
-	CompanyName    string    `json:"company_name"`
-	CompanyAddress string    `json:"company_address"`
-	CompanyEmail   string    `json:"company_email"`
-	ProductOrdered string    `json:"product_ordered"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID             int64      `json:"id"`
+	PICName        string     `json:"pic_name"`
+	CompanyName    string     `json:"company_name"`
+	CompanyAddress string     `json:"company_address"`
+	CompanyEmail   string     `json:"company_email"`
+	ProductOrdered string     `json:"product_ordered"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
 }
 
 // GetProductList returns ordered products as a slice of trimmed strings.
