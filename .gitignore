@@ -1,1 +1,35 @@
+# Environment & Secrets
 .env
+*.env
+
+# Binaries and build outputs
+hs1-bot
+hs1-bot.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# SQLite Database & temporary files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+cmd/data/*.db
+cmd/bot/data/*.db
+data/*.db
+
+# OS / Editor temporary files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test & coverage artifacts
+*.out
+*.test
